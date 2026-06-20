@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/v1/:path*",
-      "destination": "https://<YOUR_BACKEND_VERCEL_URL>.vercel.app/api/v1/:path*"
+      "destination": "https://event-os-backend.vercel.app/api/v1/:path*"
     },
     {
       "source": "/(.*)",
