@@ -10,7 +10,11 @@ import { RegisterInput, LoginInput } from './auth.schema';
 import { OAuth2Client } from 'google-auth-library';
 import { env } from '../../config/env';
 
-const googleClient = new OAuth2Client(env.GOOGLE_CLIENT_ID);
+const googleClient = new OAuth2Client(
+  env.GOOGLE_CLIENT_ID,
+  env.GOOGLE_CLIENT_SECRET,
+  env.GOOGLE_REDIRECT_URL
+);
 
 interface UserResponse {
   id: string;
@@ -127,44 +131,77 @@ export class AuthService {
   }
 
   /**
-   * Google OAuth Login/Registration.
+   * Generate Google Auth URL for the Server-Driven OAuth flow.
    */
-  static async loginWithGoogle(idToken: string): Promise<AuthResult> {
+  static getGoogleAuthUrl(): string {
+    return googleClient.generateAuthUrl({
+      access_type: 'offline',
+      scope: [
+        'https://www.googleapis.com/auth/userinfo.profile',
+        'https://www.googleapis.com/auth/userinfo.email',
+      ],
+      prompt: 'consent',
+    });
+  }
+
+  /**
+   * Handle Google OAuth Callback.
+   *
+   * Exchanges the authorization code for tokens, verifies the ID token,
+   * and checks if the user already exists in the database.
+   *
+   * Returns a discriminated union:
+   *  - { isNewUser: false, auth: AuthResult }  → existing user, fully logged in
+   *  - { isNewUser: true,  profile: { email, name } } → needs registration
+   */
+  static async handleGoogleCallback(
+    code: string
+  ): Promise<
+    | { isNewUser: false; auth: AuthResult }
+    | { isNewUser: true; profile: { email: string; name: string } }
+  > {
+    // 1. Exchange code for tokens
     let payload;
     try {
+      const { tokens } = await googleClient.getToken(code);
+
+      if (!tokens.id_token) {
+        throw new Error('No id_token in Google response');
+      }
+
       const ticket = await googleClient.verifyIdToken({
-        idToken,
+        idToken: tokens.id_token,
         audience: env.GOOGLE_CLIENT_ID,
       });
       payload = ticket.getPayload();
     } catch (error) {
-      throw new AppError(401, 'Invalid Google token', 'UNAUTHORIZED');
+      throw new AppError(401, 'Invalid Google OAuth code', 'UNAUTHORIZED');
     }
 
     if (!payload || !payload.email) {
       throw new AppError(401, 'Google token missing email', 'UNAUTHORIZED');
     }
 
-    // Lookup user by email
+    // 2. Check if user already exists
     const result = await pool.query(
       'SELECT id, email, name, role FROM event_os_users WHERE email = $1',
       [payload.email]
     );
 
-    let user: UserResponse;
-
     if (result.rows.length === 0) {
-      throw new AppError(
-        404, 
-        'Google account not registered. Please complete registration.', 
-        'GOOGLE_ACCOUNT_NOT_REGISTERED', 
-        { email: payload.email, name: payload.name || 'Google User' }
-      );
+      // New user — send them to register with pre-filled Google profile
+      return {
+        isNewUser: true,
+        profile: {
+          email: payload.email,
+          name: payload.name || '',
+        },
+      };
     }
 
-    user = result.rows[0];
+    // 3. Existing user — issue tokens and log them in
+    const user: UserResponse = result.rows[0];
 
-    // Generate tokens
     const accessToken = signAccessToken({
       userId: user.id,
       email: user.email,
@@ -174,83 +211,19 @@ export class AuthService {
     const refreshToken = generateRefreshToken();
     const tokenHash = hashRefreshToken(refreshToken);
 
-    // Store refresh token
     await pool.query(
       `INSERT INTO event_os_refresh_tokens (user_id, token_hash, expires_at)
        VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
       [user.id, tokenHash]
     );
 
-    return { user, accessToken, refreshToken };
-  }
-
-  /**
-   * Google OAuth Extended Registration.
-   */
-  static async registerWithGoogle(data: { idToken: string; password?: string }): Promise<AuthResult> {
-    let payload;
-    try {
-      const ticket = await googleClient.verifyIdToken({
-        idToken: data.idToken,
-        audience: env.GOOGLE_CLIENT_ID,
-      });
-      payload = ticket.getPayload();
-    } catch (error) {
-      throw new AppError(401, 'Invalid Google token', 'UNAUTHORIZED');
-    }
-
-    if (!payload || !payload.email) {
-      throw new AppError(401, 'Google token missing email', 'UNAUTHORIZED');
-    }
-
-    // Check if user already exists
-    const existing = await pool.query(
-      'SELECT id, email, name, role FROM event_os_users WHERE email = $1',
-      [payload.email]
-    );
-
-    if (existing.rows.length > 0) {
-      throw new AppError(409, 'An account with this email already exists', 'EMAIL_ALREADY_EXISTS');
-    }
-
-    // Create a password hash if password provided, else a placeholder
-    const passwordHash = data.password 
-      ? await hashPassword(data.password)
-      : 'oauth_placeholder_hash';
-
-    // Register user
-    const insertResult = await pool.query(
-      `INSERT INTO event_os_users (email, password_hash, name)
-       VALUES ($1, $2, $3)
-       RETURNING id, email, name, role`,
-      [payload.email, passwordHash, payload.name || 'Google User']
-    );
-    const user: UserResponse = insertResult.rows[0];
-
-    // Generate tokens
-    const accessToken = signAccessToken({
-      userId: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    const refreshToken = generateRefreshToken();
-    const tokenHash = hashRefreshToken(refreshToken);
-
-    // Store refresh token
-    await pool.query(
-      `INSERT INTO event_os_refresh_tokens (user_id, token_hash, expires_at)
-       VALUES ($1, $2, NOW() + INTERVAL '7 days')`,
-      [user.id, tokenHash]
-    );
-
-    return { user, accessToken, refreshToken };
+    return { isNewUser: false, auth: { user, accessToken, refreshToken } };
   }
 
   /**
    * Refresh access token using a valid refresh token.
    */
-  static async refresh(rawToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  static async refresh(rawToken: string): Promise<{ user: UserResponse; accessToken: string; refreshToken: string }> {
     const tokenHash = hashRefreshToken(rawToken);
 
     const result = await pool.query(
@@ -298,7 +271,14 @@ export class AuthService {
       [row.user_id, newTokenHash]
     );
 
-    return { accessToken, refreshToken: newRefreshToken };
+    const user: UserResponse = {
+      id: row.user_id,
+      email: row.email,
+      name: row.name,
+      role: row.role,
+    };
+
+    return { user, accessToken, refreshToken: newRefreshToken };
   }
 
   /**

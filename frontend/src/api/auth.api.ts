@@ -8,14 +8,11 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post<ApiResponse<AuthResponse>>('/auth/login', data).then((r) => r.data.data),
 
-  googleLogin: (credential: string) =>
-    api.post<ApiResponse<AuthResponse>>('/auth/google', { credential }).then((r) => r.data.data),
-
-  googleRegister: (data: { credential: string; password?: string }) =>
-    api.post<ApiResponse<AuthResponse>>('/auth/google/register', data).then((r) => r.data.data),
+  getGoogleAuthUrl: () =>
+    api.get<ApiResponse<{ url: string }>>('/auth/google').then((r) => r.data.data.url),
 
   refresh: () =>
-    api.post<ApiResponse<{ accessToken: string }>>('/auth/refresh').then((r) => r.data.data),
+    api.post<ApiResponse<{ accessToken: string; user: AuthResponse['user'] }>>('/auth/refresh').then((r) => r.data.data),
 
   logout: () =>
     api.post('/auth/logout'),

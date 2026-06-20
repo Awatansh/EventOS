@@ -1,53 +1,67 @@
-# EventOS - Next Generation Event Booking Platform
+# EventOS — Next-Generation Event Booking Platform
 
-EventOS is a highly scalable, full-stack event management and booking platform. It was built with a strong focus on **code quality**, **maintainability**, **high concurrency**, and an **exceptional user experience**.
+EventOS is a production-grade, full-stack event management and booking platform engineered for high concurrency, security, and an exceptional user experience. It demonstrates industry-standard backend architecture, real-time capabilities, and a polished, accessible frontend.
 
-[🔥 Live Demo](https://#) *(Link to be added)*
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-event--os--Live-6366f1?style=for-the-badge&logo=vercel)](https://event-os-frontend.vercel.app)
+[![Backend API](https://img.shields.io/badge/Backend%20API-event--os--backend-0ea5e9?style=for-the-badge&logo=express)](https://event-os-backend.vercel.app/api/health)
 
-> [!NOTE]  
-> **Cold Start Disclaimer:** The database runs on a serverless Neon PostgreSQL instance. If the platform has been inactive for a while, the very first request may take up to 3-4 seconds to wake up the database compute instance. All subsequent requests will execute instantly.
+> [!NOTE]
+> **Cold Start:** The database runs on a serverless Neon PostgreSQL instance. The very first request after a period of inactivity may take 3–5 seconds to wake the compute instance. All subsequent requests execute instantly.
 
 ---
 
 ## 🏗️ Architecture & Database Schema
 
-The core database uses PostgreSQL. Below is the Entity-Relationship (ER) diagram representing the schema design, demonstrating a clear separation of concerns, robust referential integrity, and dedicated models for my advanced features (like Newsletter Subscriptions).
+EventOS uses a decoupled Client-Server architecture communicating over REST and WebSockets. The backend follows a strict **Controller → Service → Repository** pattern to keep business logic portable and testable.
 
 ```mermaid
 erDiagram
-    USERS ||--o{ BOOKINGS : "makes"
-    EVENTS ||--o{ BOOKINGS : "receives"
-    
-    USERS {
+    EVENT_OS_USERS ||--o{ EVENT_OS_BOOKINGS : "makes"
+    EVENT_OS_USERS ||--o{ EVENT_OS_REFRESH_TOKENS : "owns"
+    EVENT_OS_EVENTS ||--o{ EVENT_OS_BOOKINGS : "receives"
+
+    EVENT_OS_USERS {
         uuid id PK
-        string email
-        string password
-        string first_name
-        string last_name
-        enum role "USER | ADMIN"
+        varchar email UK
+        varchar password_hash
+        varchar name
+        varchar role "user | admin"
+        timestamp created_at
     }
-    
-    EVENTS {
+
+    EVENT_OS_EVENTS {
         uuid id PK
-        string name
-        string description
+        varchar title
+        text description
         timestamp date
-        string venue
+        varchar venue
+        varchar category
         int total_seats
-        int available_seats
+        int available_seats "CHECK >= 0"
+        varchar image_url
+        timestamp created_at
     }
-    
-    BOOKINGS {
+
+    EVENT_OS_BOOKINGS {
         uuid id PK
         uuid user_id FK
         uuid event_id FK
         int number_of_seats
-        enum status "CONFIRMED | CANCELLED"
+        varchar status "booked | cancelled"
+        timestamp created_at
     }
-    
-    NEWSLETTER_SUBSCRIBERS {
+
+    EVENT_OS_REFRESH_TOKENS {
         uuid id PK
-        string email
+        uuid user_id FK
+        varchar token_hash UK
+        timestamp expires_at
+        timestamp created_at
+    }
+
+    EVENT_OS_NEWSLETTER_SUBSCRIBERS {
+        uuid id PK
+        varchar email UK
         timestamp subscribed_at
     }
 ```
@@ -56,181 +70,228 @@ erDiagram
 
 ## 🛠️ Project Setup
 
-I have provided automated setup scripts for both Mac/Linux and Windows to get you running in under a minute. 
-
 ### Step 1: Configure Environment Variables
-You must set up your environment variables before running any scripts.
 
 Copy the example files to create your local `.env` files:
+
 ```bash
 # Backend
 cp backend/.env.example backend/.env
 
-# Frontend
-cp frontend/.env.example frontend/.env
+# Frontend (optional — defaults work for local dev)
+cp frontend/.env.example frontend/.env.local
 ```
 
-**Note:** Open the new `.env` files and add your `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` if you want the Google OAuth login flow to work.
+Open `backend/.env` and fill in all required values. Key values you must set:
 
-### Step 2: Choose Your Database Setup Method
+- `DATABASE_URL` — Your PostgreSQL connection string
+- `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` — From the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+- `GOOGLE_REDIRECT_URL` — `http://localhost:3000/api/v1/auth/google/callback` for local dev
 
-You can run EventOS using a modern Serverless Postgres provider (Method A), a local Docker container (Method B), or a standard Local PostgreSQL App like pgAdmin/Windows (Method C).
+> [ IMP ]
+> In the Google Cloud Console, add `http://localhost:3000/api/v1/auth/google/callback` under **Authorized redirect URIs**.
 
-#### Method A: Serverless Postgres (Neon / Supabase / AWS)
-This is the fastest method. Neon gives you a direct connection string.
-1. Open `backend/.env` and paste your exact URL from Neon into `DATABASE_URL`:
+### Step 2: Choose Your Database Setup
+
+#### Method A: Serverless Postgres (Neon — Recommended)
+
+1. Paste your Neon connection string into `DATABASE_URL`:
    ```env
    DATABASE_URL=postgresql://neondb_owner:npg_xxxxxxxx@ep-xxxx-xxxx.us-east-1.aws.neon.tech/neondb?sslmode=require
    ```
-   *(Paste it exactly as Neon gives it to you. Do not worry if you see a node SSL warning in the console, it is a harmless library deprecation notice).*
-2. Run the automated Live setup script (installs dependencies, runs migrations, seeds data, and starts both servers):
+2. Run the automated setup script:
 
    **Mac/Linux:**
+
    ```bash
    ./setup-live.sh
    ```
+
    **Windows:**
+
    ```powershell
    .\setup-live.ps1
    ```
 
-#### Method B: Local Docker Database
-This method spins up a local Postgres instance using `docker-compose`.
-1. Open `backend/.env` and paste the standard local Docker URL:
+#### Method B: Local Docker
+
+1. Set `DATABASE_URL`:
    ```env
    DATABASE_URL=postgres://eventos_user:eventos_password@localhost:5433/eventbooking
    ```
-2. Run the automated Docker setup script:
+2. Run:
 
    **Mac/Linux:**
+
    ```bash
    ./setup-docker.sh
    ```
+
    **Windows:**
+
    ```powershell
    .\setup-docker.ps1
    ```
 
-#### Method C: Local PostgreSQL (Windows App / pgAdmin)
-If you already have PostgreSQL installed locally on your Windows or Mac machine:
-1. Create a database named `eventbooking` in pgAdmin or via psql.
-2. Open `backend/.env` and set `DATABASE_URL` to your local postgres credentials (default port is usually 5432):
+#### Method C: Local PostgreSQL (pgAdmin / psql)
+
+1. Create a database named `eventbooking`.
+2. Set `DATABASE_URL`:
    ```env
    DATABASE_URL=postgresql://postgres:YourPassword123!@localhost:5432/eventbooking
    ```
-3. Run the setup scripts (you can use the Live script, as it skips starting Docker):
+3. Run `.\setup-live.ps1` (Windows) or `./setup-live.sh` (Mac/Linux).
 
-   **Windows:**
-   ```powershell
-   .\setup-live.ps1
+---
+
+### 🎉 Next Steps
+
+## _Once the setup scripts complete successfully, open [http://localhost:5173](http://localhost:5173) in your browser to view the application!_
+
+---
+
+## **🔐 Environment Variables Reference**
+
+### Backend — `backend/.env`
+
+| Variable                    | Category       | Description                                             |
+| --------------------------- | -------------- | ------------------------------------------------------- |
+| `NODE_ENV`                  | Infrastructure | `development` or `production`                           |
+| `PORT`                      | Infrastructure | Express server port (default: `3000`)                   |
+| `DATABASE_URL`              | Infrastructure | PostgreSQL connection string                            |
+| `JWT_ACCESS_SECRET`         | Security       | Secret for signing access tokens — min 32 chars         |
+| `JWT_REFRESH_SECRET`        | Security       | Secret for signing refresh tokens — min 32 chars        |
+| `BCRYPT_ROUNDS`             | Security       | bcrypt cost factor (recommended: `12`)                  |
+| `CORS_ORIGIN`               | Security       | Allowed frontend origin (e.g., `http://localhost:5173`) |
+| `RATE_LIMIT_WINDOW_MS`      | Rate Limiting  | Time window in ms (e.g., `900000` = 15 min)             |
+| `RATE_LIMIT_MAX`            | Rate Limiting  | Max requests per IP per window (e.g., `100`)            |
+| `SEAT_LOCK_TIMEOUT_SECONDS` | Concurrency    | Row-level lock timeout before a transaction aborts      |
+| `GOOGLE_CLIENT_ID`          | OAuth          | Google OAuth 2.0 Client ID                              |
+| `GOOGLE_CLIENT_SECRET`      | OAuth          | Google OAuth 2.0 Client Secret                          |
+| `GOOGLE_REDIRECT_URL`       | OAuth          | Callback URL → must match Google Cloud Console exactly  |
+
+### Frontend — `frontend/.env.local`
+
+| Variable            | Required | Description                                               |
+| ------------------- | :------: | --------------------------------------------------------- |
+| `VITE_API_BASE_URL` | Optional | Override API base URL. Defaults to `/api/v1` (Vite proxy) |
+
+> [!TIP]
+> `VITE_GOOGLE_CLIENT_ID` is **no longer needed**. The OAuth flow is fully server-driven — no Google scripts are loaded in the browser.
+
+---
+
+## 📡 API Reference
+
+```
+Local      → http://localhost:3000/api/v1
+Production → https://event-os-backend.vercel.app/api/v1
+```
+
+**Legend:** `—` Public &nbsp;|&nbsp; `🔒` Requires Bearer token &nbsp;|&nbsp; `🔒 Admin` Requires admin role
+
+### Authentication `/auth`
+
+| Method | Endpoint                |  Auth  | Description                                                |
+| :----: | ----------------------- | :----: | ---------------------------------------------------------- |
+| `POST` | `/auth/register`        |   —    | Create account with name, email, password                  |
+| `POST` | `/auth/login`           |   —    | Validate credentials → sets `HttpOnly` refresh cookie      |
+| `POST` | `/auth/refresh`         | Cookie | Rotate refresh token → returns new access token + user     |
+| `POST` | `/auth/logout`          |   🔒   | Revoke active refresh token                                |
+| `GET`  | `/auth/me`              |   🔒   | Return authenticated user's profile                        |
+| `GET`  | `/auth/google`          |   —    | Return Google OAuth redirect URL                           |
+| `GET`  | `/auth/google/callback` |   —    | Server-side token exchange → login or redirect to register |
+
+### Events `/events`
+
+| Method  | Endpoint      |   Auth   | Description                                            |
+| :-----: | ------------- | :------: | ------------------------------------------------------ |
+|  `GET`  | `/events`     |    —     | Paginated event list (`?limit=N`, `?status=published`) |
+|  `GET`  | `/events/:id` |    —     | Full details for a single event                        |
+| `POST`  | `/events`     | 🔒 Admin | Create a new event                                     |
+| `PATCH` | `/events/:id` | 🔒 Admin | Update event details                                   |
+
+### Bookings `/bookings`
+
+| Method | Endpoint                | Auth | Description                                                      |
+| :----: | ----------------------- | :--: | ---------------------------------------------------------------- |
+| `POST` | `/bookings`             |  🔒  | Reserve seats via row-level locking (`eventId`, `numberOfSeats`) |
+| `GET`  | `/bookings/my-bookings` |  🔒  | Booking history with full event metadata                         |
+| `POST` | `/bookings/:id/cancel`  |  🔒  | Cancel booking → releases seats back to inventory                |
+
+### Admin `/admin`
+
+| Method | Endpoint       |   Auth   | Description                             |
+| :----: | -------------- | :------: | --------------------------------------- |
+| `GET`  | `/admin/stats` | 🔒 Admin | Revenue, bookings, and capacity metrics |
+
+### Newsletter `/newsletter`
+
+| Method | Endpoint                | Auth | Description                            |
+| :----: | ----------------------- | :--: | -------------------------------------- |
+| `POST` | `/newsletter/subscribe` |  —   | Subscribe an email to platform updates |
+
+---
+
+## 🧠 Key Engineering Decisions
+
+### 1. Concurrency Control via PostgreSQL Row-Level Locking
+
+In high-traffic booking systems, preventing double-booking is critical. EventOS uses `SELECT ... FOR UPDATE` inside an explicit SQL transaction. When two users attempt to book the last seat simultaneously, the database engine serializes the transactions — the second transaction waits for the first to commit, then re-reads the (now 0) inventory and correctly fails with a 409 Conflict. Application-level locks were explicitly avoided as they don't survive horizontal scaling.
+
+### 2. Dual-Token JWT Session Architecture
+
+- **Access Token** (15-min JWT, in-memory only): Sent as a `Bearer` header. Short-lived to limit XSS exposure.
+- **Refresh Token** (7-day opaque string, `HttpOnly` cookie): Never accessible to JavaScript. Stored in the database as a SHA-256 hash. Rotated on every refresh (token rotation). Vercel's Reverse Proxy makes the backend appear first-party, so the `HttpOnly` cookie is accepted by all browsers without cross-origin cookie restrictions.
+
+### 3. Server-Driven OAuth & Cross-Origin Cookie Strategy
+
+A common failure point in modern web apps is third-party authentication failing due to strict browser privacy controls (like Safari ITP or Chrome's third-party cookie phase-out). Client-side SDKs that rely on cross-site scripts and cookies from `accounts.google.com` frequently break. EventOS solves this using a **Server-Driven OAuth 2.0 flow combined with a Reverse Proxy**:
+
+1. **No Third-Party Scripts**: The React frontend does not load any Google SDKs. When a user clicks "Continue with Google", React simply fetches the OAuth URL from the Express backend and redirects the browser.
+2. **Server-Side Handshake**: The Google callback (`/api/v1/auth/google/callback`) is handled entirely by the Express backend, which securely exchanges the code for the user's profile and auto-registers them if necessary.
+3. **First-Party Cookies via Reverse Proxy**: In production, the React app (`event-os-frontend.vercel.app`) and the Express API (`event-os-backend.vercel.app`) are distinct domains. The Vercel `vercel.json` utilizes a **reverse proxy rewrite rule**:
+   ```json
+   {
+     "source": "/api/v1/:path*",
+     "destination": "https://event-os-backend.vercel.app/api/v1/:path*"
+   }
    ```
+   Because the frontend proxy forwards the request, the browser perceives the backend as **same-origin**. The backend sets the `HttpOnly` refresh token cookie, and the browser accepts it as a first-party cookie, entirely bypassing cross-site cookie restrictions.
 
-*(Once the scripts finish, navigate to `http://localhost:5173` in your browser!)*
+```text
+[React Client] ──(Redirect)──> [Google Auth] ──(Redirect)──> [Express Callback] ──(Set-Cookie)──> [React App]
+```
 
----
+### 5. Isolated Newsletter Schema
 
-## 🔐 Environment Variables
+The `event_os_newsletter_subscribers` table is completely independent of `event_os_users`. Anonymous visitors can subscribe without creating an account, and the marketing pipeline can scale without coupling to authentication.
 
-### Backend (`backend/.env`)
-| Variable | Description |
-|---|---|
-| `NODE_ENV` | Typically `development` or `production`. |
-| `PORT` | The port the backend server runs on (e.g., `3000`). |
-| `DATABASE_URL` | Your PostgreSQL connection string. |
-| `JWT_ACCESS_SECRET` | A secure, random string (min 32 chars) for signing access tokens. |
-| `JWT_REFRESH_SECRET` | A secure, random string (min 32 chars) for signing refresh tokens. |
-| `BCRYPT_ROUNDS` | Salt rounds for password hashing (e.g., `12`). |
-| `CORS_ORIGIN` | The frontend URL allowed to make requests (e.g., `http://localhost:5173`). |
-| `RATE_LIMIT_WINDOW_MS` | Time window for rate limiting in milliseconds (e.g., `900000` for 15 mins). |
-| `RATE_LIMIT_MAX` | Max requests per IP per window (e.g., `100`). |
-| `GOOGLE_CLIENT_ID` | Your Google OAuth 2.0 Client ID (optional). |
-| `GOOGLE_CLIENT_SECRET` | Your Google OAuth 2.0 Client Secret (optional). |
-| `GOOGLE_REDIRECT_URL` | Your Google OAuth Callback URL (optional). |
-| `SEAT_LOCK_TIMEOUT_SECONDS` | Time in seconds before an unpaid seat lock expires (e.g., `1`). |
+### 6. Seat Quantity Model
 
-### Frontend (`frontend/.env`)
-| Variable | Description |
-|---|---|
-| `VITE_API_BASE_URL` | The backend API URL (e.g., `http://localhost:3000/api/v1`). |
-| `VITE_GOOGLE_CLIENT_ID` | Your Google OAuth 2.0 Client ID for the frontend SDK (optional). |
+Users book a _quantity_ of seats, not specific numbered seats (e.g., Row A, Seat 12). This dramatically simplifies the booking schema, eliminates seat-map locking edge cases, and supports 100% of general-admission use cases with higher throughput.
 
 ---
 
-## 📡 API Documentation
+## ✨ Additional Features
 
-### Base URL: `http://localhost:3000/api/v1`
-
-### 1. Authentication
-- `POST /auth/register`: Register a new user (`email`, `password`, `firstName`, `lastName`).
-- `POST /auth/login`: Authenticate and receive `accessToken` and `refreshToken`.
-- `POST /auth/refresh`: Obtain a new access token using a valid refresh token.
-- `GET /auth/google` & `GET /auth/google/callback`: Endpoints for the Google OAuth2.0 flow.
-
-### 2. Events
-- `GET /events`: Fetch a paginated list of events. Supports `?limit=` and `?status=`.
-- `GET /events/:id`: Fetch detailed information for a specific event by its ID.
-
-### 3. Bookings (Protected)
-- `POST /bookings`: Create a new booking. Requires `{ "eventId": "uuid", "numberOfSeats": 2 }`.
-- `GET /bookings/my-bookings`: Retrieve all bookings made by the authenticated user.
-- `POST /bookings/:id/cancel`: Cancel an existing booking and release the seats back into the event pool.
-
-### 4. Newsletter
-- `POST /newsletter/subscribe`: Subscribe an email to the promotional newsletter.
-
-### 5. Admin (Restricted to `ADMIN` role)
-- `GET /admin/stats`: Retrieves platform-wide statistics for the Admin Dashboard (revenue, bookings, etc).
-
----
-
-## 🧠 Architectural & Design Decisions
-
-To ensure EventOS is scalable, maintainable, and robust, several key architectural decisions were made. **Every decision was driven by the goal of writing production-quality code that mirrors industry best practices:**
-
-1. **Concurrency Control (PostgreSQL Row-Level Locking)** 
-   - **Reasoning**: In any high-traffic booking system, preventing "double-booking" is critical. I explicitly chose to use database row-level locking (`SELECT ... FOR UPDATE`) inside a transaction rather than application-level locks. This guarantees that even if hundreds of users attempt to book the exact same final seat simultaneously, the database engine queues the transactions sequentially, eliminating race conditions at the lowest level.
-2. **Seat Quantity vs. Specific Seat Mapping**
-   - **Reasoning**: I made the decision that users book a *quantity* of seats rather than picking specific numbered seats (e.g., Row A, Seat 12). This significantly simplifies the database schema and booking flow for general admission events, allowing for much higher throughput and faster checkout times without complex seat-locking timeouts.
-3. **Dedicated Admin & RBAC Database Schema**
-   - **Reasoning**: Rather than spinning up a separate application for administrators, I integrated a `role` ENUM (`USER`, `ADMIN`) directly into the PostgreSQL `event_os_users` table. This allows the system to share authentication logic while protecting sensitive data through robust Role-Based Access Control (RBAC) middleware on the backend.
-4. **Isolated Newsletter Subscription Schema**
-   - **Reasoning**: I built a dedicated `event_os_newsletter_subscribers` table that operates independently of the `event_os_users` table. This decision was made because visitors might want to subscribe to updates *without* creating a full account. Decoupling this allows marketing efforts to scale without polluting the core user authentication tables.
-5. **Relational Booking History Design**
-   - **Reasoning**: The `event_os_bookings` table uses strict foreign keys referencing `event_os_users(id)` and `event_os_events(id)`. This relational design ensures absolute data integrity. When a user requests their booking history, the backend can execute highly efficient SQL `JOIN` queries to fetch all related event metadata in a single network trip, rather than relying on the frontend to stitch the data together.
-6. **Error Handling Standardization & Zero Data Leakage**
-   - **Reasoning**: To ensure absolute consistency for API consumers and absolute security, the system uses a strict global error middleware. Every error is mapped to a unified shape (`{"message": "Human-readable explanation"}`) and specific HTTP codes. Furthermore, the handler is meticulously designed to *never* leak stack traces, raw database logs, or unformatted SQL errors to the frontend, preventing malicious actors from mapping the internal database schema.
-
----
-
-## ✨ Additional Enhancements
-
-EventOS was engineered to go beyond the baseline assignment requirements. I proactively built the following enhancements to showcase my focus on engineering excellence and user experience:
-
-1. **Visual Ticket Generation & Printouts**
-   - The "My Bookings" dashboard doesn't just list data; it features a custom UI component that renders a visual "Ticket". Users have a tangible, formatted receipt of their booking that they can theoretically print or screenshot, vastly improving the end-user experience.
-2. **Real-Time WebSockets (Socket.io) vs Static Applications**
-   - **The Edge:** Unlike traditional static applications where users must manually refresh the page to see inventory changes (often leading to frustration when seats appear available but aren't), EventOS ensures the UI is a live, exact reflection of the database state. If User A books a ticket, User B doesn't know until they refresh in a static app. EventOS eliminates this blind spot.
-   - I integrated `Socket.io` on both the Express backend and React frontend. When a seat is booked by anyone, the backend emits a `seatUpdate` event. The "Available Seats" counter decrements instantly on all active clients without requiring a page refresh. This mimics how top-tier ticketing platforms (like Ticketmaster) operate, creating urgency and making the platform feel truly "alive."
-3. **Global Light/Dark Mode Theming Engine**
-   - I built a custom `<ThemeProvider>` context that manages the UI state using `localStorage` and the `window.matchMedia` API. It leverages a `[data-theme="dark"]` attribute on the `<html>` element to target CSS variables globally. This allows for highly performant, instantaneous theme switching without expensive React re-renders.
-4. **Admin Dashboard with Real-Time Analytics & Logs**
-   - Admins get access to custom, restricted dashboards featuring real-time revenue and capacity charts (powered by Recharts). I also included customizability and administrative logs, allowing platform owners to monitor the health and performance of their events in real-time.
-5. **Interactive Date Picking & Filtering**
-   - The event discovery page includes an interactive date picker and dynamic filtering system. This allows users to effortlessly sift through large volumes of events by date or status, rather than scrolling endlessly through a static list.
-6. **Performance via Vector Graphics (SVG)**
-   - To optimize load times, all complex illustrations were built using native SVGs embedded directly into the React components instead of relying on heavy raster images (PNG/JPG). SVGs scale infinitely without pixelation and their colors are dynamically targeted by the Dark Mode CSS variables.
-7. **Automated Testing Suite (Vitest)**
-   - The backend includes highly efficient integration and unit tests written with Vitest. Notably, it includes a robust Concurrency Integration Test that successfully simulates users firing simultaneous bookings for the exact same seats, explicitly verifying that the Row-Level Locking prevents race conditions and strictly rejects the subsequent requests with a 409 Conflict.
-8. **Production-Ready Vercel Deployment Architecture**
-   - The platform is pre-configured for a modern, split Vercel deployment. It includes a frontend Reverse Proxy (`vercel.json` rewrites) to guarantee cross-domain `HttpOnly` JWT cookies work flawlessly without triggering third-party cookie blockers, and a customized serverless entry point for the Express backend.
+1. **Visual Ticket Receipts** — My Bookings renders a styled "ticket" component, giving users a tangible, printable receipt.
+2. **Real-Time Seat Updates (Socket.io)** — When any user books a seat, all active sessions instantly see the available count decrease — no page refresh needed.
+3. **Light / Dark Mode** — Zero-flicker theme engine using CSS Custom Properties and `localStorage`. No expensive JS re-renders.
+4. **Admin Analytics Dashboard** — Recharts-powered revenue and capacity charts, visible only to `admin` role users.
+5. **Interactive Filtering** — Dynamic date, category, and status filters on the events discovery page.
+6. **SVG Illustrations** — All illustrations are native SVGs embedded directly in React components. They scale infinitely and respond to CSS dark-mode variables.
+7. **Vitest Test Suite** — Integration and unit tests covering the critical booking concurrency path.
+8. **Automated Setup Scripts** — `setup-live.sh/ps1` and `setup-docker.sh/ps1` get any developer running in under a minute.
+9. **Rate Limiting** — Per-IP rate limiting with a stricter sub-limiter on all `/auth` endpoints.
+10. **Fail-Fast Validation** — Zod schemas intercept every request before it reaches the service layer, eliminating undefined behavior and mass-assignment vulnerabilities.
 
 ---
 
 ## 🏗️ Assumptions
 
-During the development of EventOS, the following assumptions were made to scope the project appropriately while maintaining a production-ready standard:
-
-1. **Event Scope**: I assume a **Single Venue Model**. Unless explicitly modeled otherwise, each event occurs at a single venue, and venue capacities map exactly 1:1 with `total_seats`.
-2. **Security & Verification**: Users logging in via Google OAuth are implicitly treated as email-verified. JWT access tokens are deliberately short-lived (e.g., 15 minutes) for security, relying on longer-lived Refresh tokens to maintain active sessions without forcing the user to log back in constantly.
-3. **Operations & Infrastructure**: The database is assumed to be either standard PostgreSQL via Docker (for local dev) or a serverless PostgreSQL provider like Neon. Neon-specific configurations (like `sslmode=require`) are supported natively by my connection string parser in `db.ts`.
-4. **Idempotency**: Booking cancellations are treated as idempotent operations. If a user tries to cancel an already cancelled booking, the system handles it gracefully without errors.
+1. **Single Venue Model** — Each event maps to exactly one venue. Multi-venue events are out of scope.
+2. **Email-Verified Google Accounts** — Google-authenticated users are treated as email-verified by default.
+3. **General Admission** — Users book a quantity of seats; specific seat numbers/positions are not tracked.
+4. **Booking Idempotency** — Cancelling an already-cancelled booking is handled gracefully without errors.
+5. **Database** — PostgreSQL 15+ is assumed. The `FOR UPDATE` row-locking and `ON CONFLICT` syntax are PostgreSQL-specific.

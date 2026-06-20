@@ -18,6 +18,8 @@ const EnvSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().default(900000),
   RATE_LIMIT_MAX: z.coerce.number().default(100),
   GOOGLE_CLIENT_ID: z.string().optional().default('dummy_client_id_eventos'),
+  GOOGLE_CLIENT_SECRET: z.string().optional().default('dummy_secret'),
+  GOOGLE_REDIRECT_URL: z.string().url().optional().default('http://localhost:5173/api/v1/auth/google/callback'),
   SEAT_LOCK_TIMEOUT_SECONDS: z.coerce.number().default(1),
 });
 

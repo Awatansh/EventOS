@@ -8,8 +8,8 @@ const router = Router();
 // Public routes with stricter rate limiting
 router.post('/register', authLimiter, AuthController.register);
 router.post('/login', authLimiter, AuthController.login);
-router.post('/google', authLimiter, AuthController.googleLogin);
-router.post('/google/register', authLimiter, AuthController.googleRegister);
+router.get('/google', authLimiter, AuthController.googleAuth);
+router.get('/google/callback', authLimiter, AuthController.googleCallback);
 router.post('/refresh', AuthController.refresh);
 
 // Protected routes

@@ -8,10 +8,13 @@ import { env } from '../../config/env';
 const REFRESH_COOKIE_OPTIONS = {
   httpOnly: true,
   secure: env.NODE_ENV === 'production',
-  sameSite: 'strict' as const,
+  sameSite: env.NODE_ENV === 'production' ? 'strict' as const : 'lax' as const,
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-  path: '/api/v1/auth',
+  path: '/',
 };
+
+/** Frontend origin — used for OAuth callback redirects */
+const FRONTEND_URL = env.CORS_ORIGIN;
 
 /**
  * Auth controller — thin handlers that parse requests, call service, format responses.
@@ -55,47 +58,46 @@ export class AuthController {
   });
 
   /**
-   * POST /auth/google
+   * GET /auth/google
+   * Initiates the Google OAuth Flow
    */
-  static googleLogin = asyncHandler(async (req: Request, res: Response) => {
-    const { credential } = req.body;
-    if (!credential) {
-      throw new AppError(400, 'Google credential token missing', 'VALIDATION_ERROR');
-    }
-
-    const result = await AuthService.loginWithGoogle(credential);
-
-    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
-
-    res.status(200).json({
-      success: true,
-      data: {
-        user: result.user,
-        accessToken: result.accessToken,
-      },
-    });
+  static googleAuth = asyncHandler(async (req: Request, res: Response) => {
+    const url = AuthService.getGoogleAuthUrl();
+    res.status(200).json({ success: true, data: { url } });
   });
 
   /**
-   * POST /auth/google/register
+   * GET /auth/google/callback
+   * Handles the Google OAuth callback.
+   * - Existing user → set cookie, redirect to /events
+   * - New user     → redirect to /register with pre-filled Google profile
    */
-  static googleRegister = asyncHandler(async (req: Request, res: Response) => {
-    const { credential, password } = req.body;
-    if (!credential) {
-      throw new AppError(400, 'Google credential token missing', 'VALIDATION_ERROR');
+  static googleCallback = asyncHandler(async (req: Request, res: Response) => {
+    const code = req.query.code as string;
+    
+    if (!code) {
+      return res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
     }
 
-    const result = await AuthService.registerWithGoogle({ idToken: credential, password });
+    try {
+      const result = await AuthService.handleGoogleCallback(code);
 
-    res.cookie('refreshToken', result.refreshToken, REFRESH_COOKIE_OPTIONS);
+      if (result.isNewUser) {
+        // Redirect to register page with Google profile pre-filled
+        const params = new URLSearchParams({
+          googleEmail: result.profile.email,
+          googleName: result.profile.name,
+        });
+        return res.redirect(`${FRONTEND_URL}/register?${params.toString()}`);
+      }
 
-    res.status(201).json({
-      success: true,
-      data: {
-        user: result.user,
-        accessToken: result.accessToken,
-      },
-    });
+      // Existing user — set refresh cookie and redirect to app
+      res.cookie('refreshToken', result.auth.refreshToken, REFRESH_COOKIE_OPTIONS);
+      res.redirect(`${FRONTEND_URL}/events`);
+    } catch (error) {
+      console.error('OAuth Callback Error:', error);
+      res.redirect(`${FRONTEND_URL}/login?error=oauth_failed`);
+    }
   });
 
   /**
@@ -115,6 +117,7 @@ export class AuthController {
     res.status(200).json({
       success: true,
       data: {
+        user: result.user,
         accessToken: result.accessToken,
       },
     });
@@ -130,7 +133,7 @@ export class AuthController {
       await AuthService.logout(rawToken);
     }
 
-    res.clearCookie('refreshToken', { path: '/api/v1/auth' });
+    res.clearCookie('refreshToken', { path: '/' });
     res.status(204).send();
   });
 

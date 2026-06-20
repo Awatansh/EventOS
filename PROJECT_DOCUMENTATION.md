@@ -1,6 +1,9 @@
 # EventOS — Comprehensive Technical Specification & Project Documentation
 
-This document serves as the exhaustive technical manual for EventOS. It details the foundational architecture, intricate data models, security protocols, API designs, and specific engineering decisions that drive the system. It is written to provide complete transparency into the system's "nook and cranny" details for subsequent developers, security auditors, and system architects.
+**Live Demo:** https://event-os-frontend.vercel.app  
+**Backend API:** https://event-os-backend.vercel.app/api/health
+
+This document serves as the exhaustive technical manual for EventOS. It details the foundational architecture, intricate data models, security protocols, API designs, and specific engineering decisions that drive the system.
 
 ---
 
@@ -133,12 +136,36 @@ erDiagram
 Security in EventOS is defense-in-depth, applied at multiple distinct layers.
 
 ### 4.1 Authentication Lifecycle & Token Confidentiality
-EventOS abandons stateful session cookies in favor of a dual-token JWT architecture:
-1. **Access Token**: An HMAC SHA-256 signed JWT valid for only 15 minutes. It contains the user's ID, Email, and Role. It is transmitted in the JSON payload and held purely in Javascript memory (Zustand). It is purposefully vulnerable to XSS but severely limits the attack window.
-2. **Refresh Token**: A cryptographically random opaque string valid for 7 days. It is sent to the client via a `Set-Cookie` header with the following flags:
-   - `HttpOnly`: The browser physically prevents Javascript (and thus XSS scripts) from reading the cookie.
-   - `Secure`: The cookie is only transmitted over HTTPS (enforced in production).
-   - `SameSite=Strict`: Prevents Cross-Site Request Forgery (CSRF) by ensuring the cookie is never sent if the request originates from a third-party domain.
+
+EventOS uses a **dual-token JWT architecture** rather than stateful sessions:
+
+1. **Access Token** — An HMAC SHA-256 signed JWT valid for **15 minutes**. Contains `userId`, `email`, and `role`. Transmitted as a JSON response body and stored in Zustand (in-memory only, never `localStorage`). Automatically attached as a `Bearer` header on all authenticated requests via the Axios request interceptor.
+2. **Refresh Token** — A cryptographically random 256-bit opaque string valid for **7 days**. Never stored raw; the database only holds its SHA-256 hash. Delivered to the client as a `Set-Cookie` with:
+   - `HttpOnly` — Physically inaccessible to JavaScript; eliminates XSS session hijacking.
+   - `Secure` — HTTPS only in production.
+   - `SameSite=Strict` in production; `SameSite=Lax` in local development (needed because the OAuth callback crosses port 3000 → 5173).
+   - `Path=/` — Scoped broadly so it is sent on both API calls and the OAuth callback redirect.
+3. **Token Rotation** — Every call to `/auth/refresh` revokes the old refresh token and issues a new one, invalidating any stolen token within one rotation window.
+
+#### 4.1.1 Server-Driven OAuth & Cross-Origin Privacy Strategy
+
+A common architectural failure point in modern web applications is third-party authentication silently failing due to strict browser privacy controls (like Safari ITP, Chrome's Privacy Sandbox, or tracking-prevention policies). Client-side OAuth SDKs that rely on cross-site scripts and cookies from `accounts.google.com` are frequently flagged by these strict environments. 
+
+EventOS solves this using a **Server-Driven OAuth 2.0 flow combined with a Reverse Proxy**:
+
+1. **No Third-Party Scripts**: The React frontend does not load any Google SDKs. When a user clicks "Continue with Google", React simply fetches the OAuth URL from the Express backend (`/api/v1/auth/google`) and redirects the browser natively.
+2. **Server-Side Handshake**: The Google callback (`/api/v1/auth/google/callback`) is handled entirely by the Express backend, which securely exchanges the code for the user's profile and auto-registers them if necessary.
+3. **First-Party Cookies via Reverse Proxy**: In production, the React app (`event-os-frontend.vercel.app`) and the Express API (`event-os-backend.vercel.app`) are distinct domains. To prevent the browser's `SameSite` cross-origin policies from blocking the session cookie, the Vercel `vercel.json` utilizes a **reverse proxy rewrite rule**:
+   ```json
+   { "source": "/api/v1/:path*", "destination": "https://event-os-backend.vercel.app/api/v1/:path*" }
+   ```
+   From the browser's perspective, all API traffic goes to `event-os-frontend.vercel.app` (same origin). The proxy silently forwards it to the backend. The `HttpOnly` refresh token cookie is set by the backend but received as a **first-party cookie** by the browser — bypassing all cross-site restrictions flawlessly with zero impact on security.
+
+```text
+[React Client] ──(Redirect)──> [Google Auth] ──(Redirect)──> [Express Callback] ──(Set-Cookie)──> [React App]
+```
+
+*(Note: For new users landing on `/register` via the callback, the form is pre-filled with their Google name and email. The email field is locked since it is already Google-verified, requiring them only to set a secure password).*
 
 ### 4.2 Cryptography
 - **Passwords**: Hashed using `bcrypt` with a configurable cost factor (defaults to 12 rounds). This ensures that brute-forcing the hashes is computationally unfeasible. Salt generation is handled internally by the Bcrypt library.
@@ -196,8 +223,9 @@ The RESTful API is designed with strict noun-based resource paths and appropriat
 - **Returns**: `200 OK` with Access Token and HttpOnly Cookie.
 
 ### `[POST] /api/v1/auth/refresh`
-- **Action**: Reads the HttpOnly cookie, verifies it against the `event_os_refresh_tokens` table hash, generates a new Access Token.
-- **Returns**: `200 OK` with new Access Token.
+- **Action**: Reads the HttpOnly cookie, verifies it against the `event_os_refresh_tokens` table hash, rotates the token (issues new refresh token + revokes old one), and generates a new Access Token.
+- **Returns**: `200 OK` with new `accessToken` and `user` profile.
+- **Note**: Returns `user` so the React app can restore session state after a page reload or OAuth callback redirect without a separate `/auth/me` round-trip.
 
 ### `[GET] /api/v1/events`
 - **Query Params**: `?limit=N`, `?status=published`
