@@ -76,7 +76,7 @@ const AppRoutes = () => {
 };
 
 const App: React.FC = () => {
-  const { login, isAuthenticated, accessToken } = useAuth();
+  const { login, accessToken } = useAuth();
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
