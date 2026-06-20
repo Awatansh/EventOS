@@ -11,6 +11,7 @@ import eventsRouter from './modules/events/events.router';
 import bookingsRouter from './modules/bookings/bookings.router';
 import adminRouter from './modules/admin/admin.router';
 import newsletterRouter from './modules/newsletter/newsletter.router';
+import path from 'path';
 
 /**
  * Express application factory.
@@ -45,6 +46,15 @@ export function createApp() {
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
+
+  // Root route (so the Vercel deployment doesn't show a 404)
+  app.get('/', (_req, res) => {
+    res.json({ message: 'EventOS API is running smoothly! 🚀' });
+  });
+
+  // Serve all static assets from the public folder (favicon, manifest, etc.)
+  app.use(express.static(path.join(__dirname, '../../public')));
+
 
   // API routes
   app.use('/api/v1/auth', authRouter);
