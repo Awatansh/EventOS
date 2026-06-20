@@ -275,7 +275,7 @@ Users book a _quantity_ of seats, not specific numbered seats (e.g., Row A, Seat
 
 ## ✨ Additional Features
 
-1. **Visual Ticket Receipts** — My Bookings renders a styled "ticket" component, giving users a tangible, printable receipt.
+1. **Visual Ticket Receipts & QR Codes** — My Bookings renders a styled "ticket" component with auto-generated QR codes, giving users a tangible, printable receipt.
 2. **Real-Time Seat Updates (Socket.io)** — When any user books a seat, all active sessions instantly see the available count decrease — no page refresh needed.
 3. **Light / Dark Mode** — Zero-flicker theme engine using CSS Custom Properties and `localStorage`. No expensive JS re-renders.
 4. **Admin Analytics Dashboard** — Recharts-powered revenue and capacity charts, visible only to `admin` role users.
