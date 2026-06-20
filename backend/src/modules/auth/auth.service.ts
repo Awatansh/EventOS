@@ -308,4 +308,45 @@ export class AuthService {
 
     return result.rows[0];
   }
+
+  /**
+   * Update user profile.
+   */
+  static async updateProfile(userId: string, data: { name?: string; password?: string }): Promise<UserResponse> {
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+
+    if (data.name) {
+      updates.push(`name = $${paramIndex}`);
+      values.push(data.name);
+      paramIndex++;
+    }
+
+    if (data.password) {
+      const passwordHash = await hashPassword(data.password);
+      updates.push(`password_hash = $${paramIndex}`);
+      values.push(passwordHash);
+      paramIndex++;
+    }
+
+    if (updates.length === 0) {
+      return this.getProfile(userId);
+    }
+
+    values.push(userId);
+    const result = await pool.query(
+      `UPDATE event_os_users 
+       SET ${updates.join(', ')} 
+       WHERE id = $${paramIndex} 
+       RETURNING id, email, name, role, created_at AS "createdAt"`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      throw new AppError(404, 'User not found', 'NOT_FOUND');
+    }
+
+    return result.rows[0];
+  }
 }

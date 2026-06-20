@@ -122,6 +122,8 @@ body {
   line-height: 1.5;
   min-height: 100vh;
   position: relative;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 /* ---- Animated Background: CSS Dot Grid ---- */
@@ -178,6 +180,12 @@ img {
   max-width: var(--container-max);
   margin: 0 auto;
   padding: 0 var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .container {
+    padding: 0 var(--space-4) !important;
+  }
 }
 
 /* ---- Navbar ---- */
@@ -823,6 +831,28 @@ img {
 .page-subtitle {
   color: var(--color-text-secondary);
   font-size: var(--text-base);
+}
+
+/* ---- Dashboard Layout ---- */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+  margin-bottom: var(--space-6);
+}
+
+.dashboard-header-stats {
+  display: flex;
+  gap: var(--space-6);
+}
+
+@media (max-width: 720px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+  .dashboard-header-stats {
+    display: none;
+  }
 }
 
 /* ---- Auth Pages ---- */

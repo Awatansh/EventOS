@@ -19,4 +19,7 @@ export const authApi = {
 
   getMe: () =>
     api.get<ApiResponse<AuthResponse['user']>>('/auth/me').then((r) => r.data.data),
+
+  updateProfile: (data: { name?: string; password?: string }) =>
+    api.put<ApiResponse<AuthResponse['user']>>('/auth/me', data).then((r) => r.data.data),
 };

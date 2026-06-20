@@ -20,7 +20,7 @@ export class NewsletterController {
   static status = asyncHandler(async (req: Request, res: Response) => {
     if (!req.user) throw new AppError(401, 'Authentication required', 'UNAUTHORIZED');
 
-    const status = await NewsletterService.getStatus(req.user.userId);
+    const status = await NewsletterService.getStatus(req.user.email, req.user.userId);
 
     res.status(200).json({
       success: true,

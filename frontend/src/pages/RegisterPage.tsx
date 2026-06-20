@@ -100,10 +100,14 @@ export const RegisterPage: React.FC = () => {
       <div className="auth-bg-orb auth-bg-orb-1" />
       <div className="auth-bg-orb auth-bg-orb-2" />
 
+      <button onClick={() => navigate(-1)} className="btn btn-secondary" style={{ position: 'absolute', top: 'var(--space-8)', left: 'var(--space-8)', display: 'flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+        <span>← Back</span>
+      </button>
+
       <div className="auth-card">
-        <div className="auth-logo">
+        <Link to="/" className="auth-logo" style={{ textDecoration: 'none' }}>
           Event<span style={{ color: 'var(--color-accent)' }}>OS</span>
-        </div>
+        </Link>
 
         <h1 className="auth-title">
           {isGooglePrefill ? 'Complete your account' : 'Create your account'}

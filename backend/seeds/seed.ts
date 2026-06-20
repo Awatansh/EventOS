@@ -89,8 +89,8 @@ async function seed() {
         name: 'React Workshop: Advanced Patterns',
         description: 'Deep dive into React 19 features including Server Components, use() hook, Actions, and concurrent rendering patterns. Build a production-grade app from scratch with TypeScript, Zustand for state management, and TanStack Query for data fetching. Bring your laptop — this is 100% hands-on.',
         venue: 'TechHub Coworking, Bangalore',
-        startsAt: '2026-07-10T10:00:00Z',
-        endsAt: '2026-07-10T16:00:00Z',
+        startsAt: '2025-07-10T10:00:00Z',
+        endsAt: '2025-07-10T16:00:00Z',
         totalSeats: 50,
         priceCents: 0,
         category: 'workshop',
@@ -113,13 +113,13 @@ async function seed() {
         name: 'Cloud Architecture Masterclass',
         description: 'Learn to design scalable, resilient cloud architectures on AWS. Covers microservices decomposition, serverless patterns, container orchestration with ECS/EKS, infrastructure as code with Terraform, and observability with CloudWatch. Taught by a 3x AWS Certified Solutions Architect.',
         venue: 'Google for Startups Campus, Hyderabad',
-        startsAt: '2026-10-05T09:00:00Z',
-        endsAt: '2026-10-05T17:00:00Z',
+        startsAt: '2025-10-05T09:00:00Z',
+        endsAt: '2025-10-05T17:00:00Z',
         totalSeats: 100,
         priceCents: 75000,
         category: 'workshop',
         imageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
-        bookedSeats: [],
+        bookedSeats: ['M1', 'M2'],
       },
       {
         name: 'Startup Founders Meetup',
@@ -137,8 +137,8 @@ async function seed() {
         name: 'TypeScript Deep Dive',
         description: 'Master advanced TypeScript patterns: conditional types, template literal types, mapped types, discriminated unions, branded types, and type-safe API design. Learn how to make TypeScript work for you, not against you. Includes live coding challenges and Q&A with the instructor.',
         venue: 'Online (Zoom Webinar)',
-        startsAt: '2026-08-05T14:00:00Z',
-        endsAt: '2026-08-05T17:00:00Z',
+        startsAt: '2025-08-05T14:00:00Z',
+        endsAt: '2025-08-05T17:00:00Z',
         totalSeats: 500,
         priceCents: 0,
         category: 'webinar',
@@ -208,8 +208,15 @@ async function seed() {
     // Alice: TypeScript Webinar
     await client.query(
       `INSERT INTO event_os_bookings (user_id, event_id, seats, total_cents, status)
-       VALUES ($1, $2, $3::varchar[], 0, 'confirmed')`,
+       VALUES ($1, $2, $3::varchar[], 45000, 'confirmed')`,
       [user1Id, eventIds[5], ['E1', 'E2', 'E3']]
+    );
+
+    // Alice: Cloud Architecture Masterclass
+    await client.query(
+      `INSERT INTO event_os_bookings (user_id, event_id, seats, total_cents, status)
+       VALUES ($1, $2, $3::varchar[], 150000, 'confirmed')`,
+      [user1Id, eventIds[3], ['M1', 'M2']]
     );
 
     // Bob: AI Hackathon

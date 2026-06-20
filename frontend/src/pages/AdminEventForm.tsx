@@ -292,6 +292,9 @@ export const AdminEventForm: React.FC = () => {
                       onChange={handleChange}
                       placeholder="https://example.com/event-banner.jpg"
                     />
+                    <span style={{ fontSize: 'var(--text-xs)', color: 'var(--color-error)' }}>
+                      Note: We do not host images currently. Please upload images to services like Imgur, Postimgs, or Discord and paste the URL here.
+                    </span>
                   </div>
                 </div>
 

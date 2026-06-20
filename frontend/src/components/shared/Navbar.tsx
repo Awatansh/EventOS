@@ -16,8 +16,12 @@ export const Navbar: React.FC = () => {
     try {
       await authApi.logout();
     } catch { /* ignore */ }
+    
     logout();
-    navigate('/login');
+    
+    // Force a full browser reload to completely flush React state, React Query cache,
+    // and bypass any framer-motion AnimatePresence/ProtectedRoute clash.
+    window.location.href = '/';
   };
 
   const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/');
@@ -38,6 +42,15 @@ export const Navbar: React.FC = () => {
         </button>
 
         <ul className={`navbar-links ${menuOpen ? 'open' : ''}`}>
+          <li>
+            <Link
+              to="/"
+              className={`navbar-link ${location.pathname === '/' ? 'active' : ''}`}
+              onClick={() => setMenuOpen(false)}
+            >
+              Home
+            </Link>
+          </li>
           <li>
             <Link
               to="/events"
@@ -83,10 +96,12 @@ export const Navbar: React.FC = () => {
           
           {isAuthenticated ? (
             <div className="navbar-user">
-              <div className="navbar-avatar" id="user-avatar">
-                {user?.name?.charAt(0).toUpperCase()}
-              </div>
-              <span>{user?.name}</span>
+              <Link to="/dashboard" style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-2)', textDecoration: 'none', color: 'inherit' }}>
+                <div className="navbar-avatar" id="user-avatar">
+                  {user?.name?.charAt(0).toUpperCase()}
+                </div>
+                <span>{user?.name}</span>
+              </Link>
               {isAdmin && <span className="navbar-admin-badge">Admin</span>}
               <button className="btn btn-ghost" onClick={handleLogout} id="logout-btn">
                 Logout

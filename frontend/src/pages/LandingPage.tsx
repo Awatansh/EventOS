@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Search, Sparkles, MapPin, Zap } from 'lucide-react';
 import { Navbar } from '../components/shared/Navbar';
 import { EventCard } from '../components/shared/EventCard';
@@ -19,17 +19,22 @@ export const LandingPage: React.FC = () => {
 
   const { isAuthenticated } = useAuth();
   const { addToast } = useToast();
-  const [isSubscribed, setIsSubscribed] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    return localStorage.getItem('eventos_newsletter_subscribed') === 'true';
+  });
   const [newsletterEmail, setNewsletterEmail] = useState('');
   const [subscribing, setSubscribing] = useState(false);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && !isSubscribed) {
       newsletterApi.getStatus().then((res) => {
-        setIsSubscribed(res.data.isSubscribed);
+        if (res.data.isSubscribed) {
+          setIsSubscribed(true);
+          localStorage.setItem('eventos_newsletter_subscribed', 'true');
+        }
       }).catch(() => { });
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isSubscribed]);
 
   const handleSubscribe = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,11 +43,19 @@ export const LandingPage: React.FC = () => {
     try {
       await newsletterApi.subscribe(newsletterEmail);
       setIsSubscribed(true);
+      localStorage.setItem('eventos_newsletter_subscribed', 'true');
       addToast('success', 'Successfully subscribed to the newsletter! 🎉');
       setNewsletterEmail('');
     } catch (err: any) {
       const msg = err.response?.data?.error?.message || 'Failed to subscribe.';
-      addToast('error', msg);
+      if (msg === 'Email is already subscribed') {
+        setIsSubscribed(true);
+        localStorage.setItem('eventos_newsletter_subscribed', 'true');
+        addToast('success', "You're already subscribed! Thanks for sticking around! 🎉");
+        setNewsletterEmail('');
+      } else {
+        addToast('error', msg);
+      }
     } finally {
       setSubscribing(false);
     }
@@ -298,43 +311,66 @@ export const LandingPage: React.FC = () => {
           </section>
 
           {/* Newsletter Section */}
-          {!isSubscribed && (
-            <section style={{ background: 'var(--color-accent)', padding: 'var(--space-16) 0', color: 'white', position: 'relative', overflow: 'hidden' }}>
-              <div style={{ position: 'absolute', inset: 0, opacity: 0.1 }}>
-                <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
-                  <defs>
-                    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
-                    </pattern>
-                  </defs>
-                  <rect width="100%" height="100%" fill="url(#grid)" />
-                </svg>
-              </div>
-              <div className="container" style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '600px' }}>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-3xl)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>Stay in the Loop</h2>
-                <p style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-8)', opacity: 0.9 }}>
-                  Subscribe to our newsletter to get early access to exclusive events, workshops, and meetups.
-                </p>
-                <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: 'var(--space-2)', maxWidth: '400px', margin: '0 auto' }}>
-                  <input
-                    type="email"
-                    placeholder="Enter your email"
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    style={{ flex: 1, padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-md)', border: 'none', outline: 'none', color: 'var(--color-text-primary)' }}
-                    required
-                  />
-                  <button type="submit" disabled={subscribing} style={{ whiteSpace: 'nowrap', border: 'none', color: 'var(--color-accent)', background: 'white', padding: 'var(--space-3) var(--space-6)', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>
-                    {subscribing ? 'Subscribing...' : 'Subscribe'}
-                  </button>
-                </form>
-              </div>
-            </section>
-          )}
+          <section style={{ background: 'var(--color-accent)', padding: 'var(--space-16) 0', color: 'white', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', inset: 0, opacity: 0.1 }}>
+              <svg width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="white" strokeWidth="1" />
+                  </pattern>
+                </defs>
+                <rect width="100%" height="100%" fill="url(#grid)" />
+              </svg>
+            </div>
+            <div className="container" style={{ position: 'relative', zIndex: 1, textAlign: 'center', maxWidth: '600px' }}>
+              <AnimatePresence mode="wait">
+                {!isSubscribed ? (
+                  <motion.div
+                    key="form"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-3xl)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>Stay in the Loop</h2>
+                    <p style={{ fontSize: 'var(--text-lg)', marginBottom: 'var(--space-8)', opacity: 0.9 }}>
+                      Subscribe to our newsletter to get early access to exclusive events, workshops, and meetups.
+                    </p>
+                    <form onSubmit={handleSubscribe} style={{ display: 'flex', gap: 'var(--space-2)', maxWidth: '400px', margin: '0 auto' }}>
+                      <input
+                        type="email"
+                        placeholder="Enter your email"
+                        value={newsletterEmail}
+                        onChange={(e) => setNewsletterEmail(e.target.value)}
+                        style={{ flex: 1, padding: 'var(--space-3) var(--space-4)', borderRadius: 'var(--radius-md)', border: 'none', outline: 'none', color: 'var(--color-text-primary)' }}
+                        required
+                      />
+                      <button type="submit" disabled={subscribing} style={{ whiteSpace: 'nowrap', border: 'none', color: 'var(--color-accent)', background: 'white', padding: 'var(--space-3) var(--space-6)', borderRadius: 'var(--radius-md)', fontWeight: 600, cursor: 'pointer' }}>
+                        {subscribing ? 'Subscribing...' : 'Subscribe'}
+                      </button>
+                    </form>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="success"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                    style={{ padding: 'var(--space-4) 0' }}
+                  >
+                    <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'var(--text-3xl)', fontWeight: 700, marginBottom: 'var(--space-4)' }}>🎉 Thanks for subscribing!</h2>
+                    <p style={{ fontSize: 'var(--text-lg)', opacity: 0.9 }}>
+                      You'll be the first to know about new events and exclusive drops.
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </section>
 
           {/* Footer */}
           <footer className="footer" id="footer" style={{ borderTop: '1px solid var(--color-border)', background: 'var(--color-surface)', marginTop: 'auto' }}>
-            <div className="container footer-inner" style={{ padding: 'var(--space-8) 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
+            <div className="container footer-inner" style={{ paddingTop: 'var(--space-8)', paddingBottom: 'calc(var(--space-8) + env(safe-area-inset-bottom))', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
               <div>
                 <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 'var(--text-xl)' }}>
                   Event<span style={{ color: 'var(--color-accent)' }}>OS</span>

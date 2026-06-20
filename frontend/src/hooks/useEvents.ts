@@ -8,7 +8,8 @@ export function useEvents(params?: Record<string, string | number>) {
   return useQuery({
     queryKey: ['events', params],
     queryFn: () => eventsApi.getEvents(params),
-    staleTime: 30000, // 30 seconds
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 }
 
@@ -20,6 +21,7 @@ export function useEvent(id: string) {
     queryKey: ['event', id],
     queryFn: () => eventsApi.getEventById(id),
     enabled: !!id,
-    staleTime: 15000,
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
   });
 }

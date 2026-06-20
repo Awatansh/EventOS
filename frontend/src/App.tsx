@@ -15,6 +15,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { EventsPage } from './pages/EventsPage';
 import { EventDetailPage } from './pages/EventDetailPage';
 import { MyBookingsPage } from './pages/MyBookingsPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { AdminDashboard } from './pages/AdminDashboard';
 import { AdminEventForm } from './pages/AdminEventForm';
 
@@ -38,6 +39,16 @@ const AppRoutes = () => {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/events" element={<EventsPage />} />
         <Route path="/events/:id" element={<EventDetailPage />} />
+        
+        {/* Protected User Routes */}
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/bookings"
           element={
@@ -46,6 +57,7 @@ const AppRoutes = () => {
             </ProtectedRoute>
           }
         />
+
         <Route
           path="/admin"
           element={
@@ -112,7 +124,7 @@ const App: React.FC = () => {
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
-          <BrowserRouter>
+          <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <AppRoutes />
           </BrowserRouter>
         </ToastProvider>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Navbar } from '../components/shared/Navbar';
 import { EventCard } from '../components/shared/EventCard';
 import { PageTransition } from '../components/shared/PageTransition';
@@ -11,6 +11,7 @@ import type { EventCategory } from '../types';
 import { CATEGORY_META } from '../types';
 
 export const EventsPage: React.FC = () => {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [searchInput, setSearchInput] = useState(searchParams.get('search') || '');
   const page = parseInt(searchParams.get('page') || '1', 10);
@@ -95,6 +96,9 @@ export const EventsPage: React.FC = () => {
           <div className="container">
             <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 'var(--space-4)' }}>
               <div>
+                <button onClick={() => navigate(-1)} className="btn btn-secondary" style={{ marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: 'var(--space-2)' }}>
+                  <span>← Back</span>
+                </button>
                 <h1 className="page-title">Upcoming Events</h1>
                 <p className="page-subtitle">
                   {data?.meta ? `${data.meta.total} events found` : 'Loading events...'}

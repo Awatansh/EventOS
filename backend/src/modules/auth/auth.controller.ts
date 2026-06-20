@@ -152,4 +152,23 @@ export class AuthController {
       data: profile,
     });
   });
+
+  /**
+   * PUT /auth/me
+   */
+  static updateProfile = asyncHandler(async (req: Request, res: Response) => {
+    if (!req.user) {
+      throw new AppError(401, 'Authentication required', 'UNAUTHORIZED');
+    }
+
+    const { updateProfileSchema } = await import('./auth.schema');
+    const data = updateProfileSchema.parse(req.body);
+
+    const profile = await AuthService.updateProfile(req.user.userId, data);
+
+    res.status(200).json({
+      success: true,
+      data: profile,
+    });
+  });
 }

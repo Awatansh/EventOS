@@ -22,6 +22,9 @@ export class EventService {
     values.push(status);
     paramIndex++;
 
+    // Hide past events
+    conditions.push(`ends_at > NOW()`);
+
     // Category filter
     if (category) {
       conditions.push(`category = $${paramIndex}`);

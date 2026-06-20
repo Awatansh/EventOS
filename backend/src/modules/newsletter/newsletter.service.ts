@@ -21,10 +21,10 @@ export class NewsletterService {
     }
   }
 
-  static async getStatus(userId: string) {
+  static async getStatus(email: string, userId: string) {
     const result = await pool.query(
-      'SELECT id FROM event_os_newsletter_subscribers WHERE user_id = $1 LIMIT 1',
-      [userId]
+      'SELECT id FROM event_os_newsletter_subscribers WHERE email = $1 OR user_id = $2 LIMIT 1',
+      [email, userId]
     );
     return { isSubscribed: result.rows.length > 0 };
   }

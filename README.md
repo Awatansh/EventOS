@@ -148,6 +148,18 @@ Open `backend/.env` and fill in all required values. Key values you must set:
 
 ## _Once the setup scripts complete successfully, open [http://localhost:5173](http://localhost:5173) in your browser to view the application!_
 
+### 🔑 Default Test Credentials
+
+The database is seeded with the following accounts for testing:
+
+**Admin Account:**
+- **Email:** `admin@eventos.dev`
+- **Password:** `Admin@1234`
+
+**Regular User Account:**
+- **Email:** `alice@example.com`
+- **Password:** `User@1234`
+
 ---
 
 ## **🔐 Environment Variables Reference**
@@ -306,6 +318,7 @@ Users book a _quantity_ of seats, not specific numbered seats (e.g., Row A, Seat
 While EventOS is built to enterprise standards, the following upgrades would elevate it to a massive global scale:
 
 ### Architecture
+- **Cloud Storage & CDN** — Currently, images are managed via external URLs. A massive upgrade would be integrating a free-tier service like **Cloudinary** or **Supabase Storage**. They provide generous limits, excellent developer APIs for direct browser uploads, and global CDNs to serve event banners lightning fast.
 - **Redis Caching** — Cache the homepage and `/categories` endpoints for near-zero latency and reduced database load.
 - **Search Engine** — Integrate Meilisearch or Elasticsearch for typo-tolerant (fuzzy) search matching.
 - **Background Job Queue** — Offload heavy tasks (PDF generation, email sending, seat-lock timeouts) to a queue like BullMQ to keep the main API blazing fast.
