@@ -102,6 +102,19 @@ export class EventService {
   }
 
   /**
+   * Get all distinct categories currently in use by published events.
+   */
+  static async getCategories(): Promise<string[]> {
+    const result = await pool.query(
+      `SELECT DISTINCT category 
+       FROM event_os_events 
+       WHERE status = 'published' 
+       ORDER BY category ASC`
+    );
+    return result.rows.map(row => row.category);
+  }
+
+  /**
    * Get a single event by ID with full details.
    */
   static async getEventById(id: string) {

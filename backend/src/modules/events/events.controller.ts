@@ -27,6 +27,18 @@ export class EventController {
   });
 
   /**
+   * GET /events/categories — public listing of unique event categories.
+   */
+  static getCategories = asyncHandler(async (req: Request, res: Response) => {
+    const categories = await EventService.getCategories();
+
+    res.status(200).json({
+      success: true,
+      data: categories,
+    });
+  });
+
+  /**
    * GET /events/:id — public event detail.
    */
   static getById = asyncHandler(async (req: Request, res: Response) => {

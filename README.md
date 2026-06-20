@@ -204,12 +204,13 @@ Production → https://event-os-backend.vercel.app/api/v1
 
 ### Events `/events`
 
-| Method  | Endpoint      |   Auth   | Description                                            |
-| :-----: | ------------- | :------: | ------------------------------------------------------ |
-|  `GET`  | `/events`     |    —     | Paginated event list (`?limit=N`, `?status=published`) |
-|  `GET`  | `/events/:id` |    —     | Full details for a single event                        |
-| `POST`  | `/events`     | 🔒 Admin | Create a new event                                     |
-| `PATCH` | `/events/:id` | 🔒 Admin | Update event details                                   |
+| Method | Endpoint | Auth | Description |
+|:---:|---|:---:|---|
+| `GET` | `/events` | — | Paginated event list (`?limit=N`, `?status=published`) |
+| `GET` | `/events/categories` | — | Get all unique published categories for dynamic filtering |
+| `GET` | `/events/:id` | — | Full details for a single event |
+| `POST` | `/events` | 🔒 Admin | Create a new event |
+| `PATCH` | `/events/:id` | 🔒 Admin | Update event details |
 
 ### Bookings `/bookings`
 
@@ -285,6 +286,8 @@ Users book a _quantity_ of seats, not specific numbered seats (e.g., Row A, Seat
 8. **Automated Setup Scripts** — `setup-live.sh/ps1` and `setup-docker.sh/ps1` get any developer running in under a minute.
 9. **Rate Limiting** — Per-IP rate limiting with a stricter sub-limiter on all `/auth` endpoints.
 10. **Fail-Fast Validation** — Zod schemas intercept every request before it reaches the service layer, eliminating undefined behavior and mass-assignment vulnerabilities.
+11. **Debounced Search** — The `useDebounce` hook prevents API spamming by waiting 200ms after the user stops typing before querying the database.
+12. **Dynamic Filter Aggregation** — The `GET /api/v1/events/categories` endpoint aggregates all unique categories currently published in the database, making the frontend filter dropdown fully dynamic and future-proof.
 
 ---
 
@@ -295,3 +298,19 @@ Users book a _quantity_ of seats, not specific numbered seats (e.g., Row A, Seat
 3. **General Admission** — Users book a quantity of seats; specific seat numbers/positions are not tracked.
 4. **Booking Idempotency** — Cancelling an already-cancelled booking is handled gracefully without errors.
 5. **Database** — PostgreSQL 15+ is assumed. The `FOR UPDATE` row-locking and `ON CONFLICT` syntax are PostgreSQL-specific.
+
+---
+
+## 🚀 Future Roadmap & Improvements
+
+While EventOS is built to enterprise standards, the following upgrades would elevate it to a massive global scale:
+
+### Architecture
+- **Redis Caching** — Cache the homepage and `/categories` endpoints for near-zero latency and reduced database load.
+- **Search Engine** — Integrate Meilisearch or Elasticsearch for typo-tolerant (fuzzy) search matching.
+- **Background Job Queue** — Offload heavy tasks (PDF generation, email sending, seat-lock timeouts) to a queue like BullMQ to keep the main API blazing fast.
+
+### Features
+- **Payment Gateway** — Integrate Stripe Checkout and Webhooks to process real monetary transactions.
+- **Visual Seat Mapping** — Upgrade from general admission to an interactive SVG seat map allowing users to select specific individual seats (e.g., Row A, Seat 12).
+- **Automated Waitlists** — Allow users to join a waitlist for sold-out events, with automatic notifications or temporary holds if tickets become available due to cancellations.

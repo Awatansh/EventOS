@@ -7,6 +7,7 @@ const router = Router();
 
 // Public routes
 router.get('/', EventController.list);
+router.get('/categories', EventController.getCategories);
 router.get('/:id', EventController.getById);
 
 // Admin-only routes

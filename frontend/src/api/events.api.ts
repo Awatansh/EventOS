@@ -8,6 +8,9 @@ export const eventsApi = {
       meta: r.data.meta!,
     })),
 
+  getCategories: () =>
+    api.get<ApiResponse<string[]>>('/events/categories').then((r) => r.data.data),
+
   getEventById: (id: string) =>
     api.get<ApiResponse<Event>>(`/events/${id}`).then((r) => r.data.data),
 

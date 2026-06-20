@@ -1,10 +1,12 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Navbar } from '../components/shared/Navbar';
 import { EventCard } from '../components/shared/EventCard';
 import { PageTransition } from '../components/shared/PageTransition';
 import { AnimatedSection } from '../components/shared/AnimatedSection';
 import { useEvents } from '../hooks/useEvents';
+import { useDebounce } from '../hooks/useDebounce';
+import { eventsApi } from '../api/events.api';
 import type { EventCategory } from '../types';
 import { CATEGORY_META } from '../types';
 
@@ -15,6 +17,17 @@ export const EventsPage: React.FC = () => {
   const activeCategory = (searchParams.get('category') as EventCategory | null) || undefined;
   const activeSort = searchParams.get('sort') || undefined;
 
+  // Dynamic categories state
+  const [dynamicCategories, setDynamicCategories] = useState<string[]>(Object.keys(CATEGORY_META));
+
+  useEffect(() => {
+    eventsApi.getCategories().then((cats) => {
+      if (cats && cats.length > 0) {
+        setDynamicCategories(cats);
+      }
+    }).catch(console.error);
+  }, []);
+
   // Build query params
   const queryParams: Record<string, string | number> = { page, limit: 9 };
   const searchTerm = searchParams.get('search');
@@ -24,30 +37,26 @@ export const EventsPage: React.FC = () => {
 
   const { data, isLoading } = useEvents(queryParams);
 
-  // Debounced search - update URL after 300ms
-  const debounceSearch = useCallback(
-    (() => {
-      let timer: ReturnType<typeof setTimeout>;
-      return (value: string) => {
-        clearTimeout(timer);
-        timer = setTimeout(() => {
-          const params = new URLSearchParams(searchParams);
-          if (value) {
-            params.set('search', value);
-          } else {
-            params.delete('search');
-          }
-          params.set('page', '1');
-          setSearchParams(params);
-        }, 300);
-      };
-    })(),
-    [searchParams, setSearchParams]
-  );
+  const debouncedSearchInput = useDebounce(searchInput, 200);
 
+  // Update URL params when debounced search term changes
   useEffect(() => {
-    debounceSearch(searchInput);
-  }, [searchInput]);
+    const params = new URLSearchParams(searchParams);
+    
+    // Check if the actual search param differs from the debounced input
+    // to prevent infinite loops or unnecessary updates on initial load.
+    const currentSearchParam = params.get('search') || '';
+    
+    if (debouncedSearchInput !== currentSearchParam) {
+      if (debouncedSearchInput) {
+        params.set('search', debouncedSearchInput);
+      } else {
+        params.delete('search');
+      }
+      params.set('page', '1'); // reset to page 1 on new search
+      setSearchParams(params);
+    }
+  }, [debouncedSearchInput, searchParams, setSearchParams]);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams);
@@ -115,15 +124,21 @@ export const EventsPage: React.FC = () => {
                   >
                     🎯 All
                   </button>
-                  {Object.entries(CATEGORY_META).map(([key, meta]) => (
-                    <button
-                      key={key}
-                      className={`category-chip ${activeCategory === key ? 'active' : ''}`}
-                      onClick={() => handleCategoryFilter(key as EventCategory)}
-                    >
-                      {meta.emoji} {meta.label}
-                    </button>
-                  ))}
+                  {dynamicCategories.map((cat) => {
+                    const meta = CATEGORY_META[cat as EventCategory] || { 
+                      label: cat.charAt(0).toUpperCase() + cat.slice(1), 
+                      emoji: '🏷️' 
+                    };
+                    return (
+                      <button
+                        key={cat}
+                        className={`category-chip ${activeCategory === cat ? 'active' : ''}`}
+                        onClick={() => handleCategoryFilter(cat as EventCategory)}
+                      >
+                        {meta.emoji} {meta.label}
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <select
