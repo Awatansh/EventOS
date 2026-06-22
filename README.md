@@ -160,6 +160,10 @@ The database is seeded with the following accounts for testing:
 - **Email:** `alice@example.com`
 - **Password:** `User@1234`
 
+### 🧪 Running Tests
+To run the automated backend test suite (which validates auth and high-concurrency booking logic):
+`cd backend && npm run test`
+
 ---
 
 ## **🔐 Environment Variables Reference**
